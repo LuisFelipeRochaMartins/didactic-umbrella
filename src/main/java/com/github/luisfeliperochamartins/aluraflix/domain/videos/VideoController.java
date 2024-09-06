@@ -1,6 +1,8 @@
 package com.github.luisfeliperochamartins.aluraflix.domain.videos;
 
+import com.github.luisfeliperochamartins.aluraflix.domain.categorias.CategoriaRepository;
 import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,31 +15,42 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequestMapping(path = "/videos")
 public class VideoController {
 
-	private final VideoRepository repository;
+	private final VideoRepository videoRepository;
+	private final CategoriaRepository categoriaRepository;
+	private final VideoService service;
 
 	@Autowired
-	public VideoController(VideoRepository repository) {
-		this.repository = repository;
+	public VideoController(VideoRepository repository, CategoriaRepository categoriaRepository, VideoService service) {
+		this.videoRepository = repository;
+		this.categoriaRepository = categoriaRepository;
+		this.service = service;
 	}
 
 	@GetMapping
 	public ResponseEntity<Page<VideoRecord>> getAll(@PageableDefault Pageable page) {
-		var list = repository.findAll(page).map(VideoRecord::new);
+		var list = videoRepository.findAll(page).map(VideoRecord::new);
 
 		return ResponseEntity.ok(list);
 	}
 
-	@GetMapping(path = "/videos/{id}")
+	@GetMapping(path = "/{id}")
 	public ResponseEntity<VideoRecord> getById(@PathVariable Integer id) {
-		var video = repository.findById(id).orElseThrow(() -> new RuntimeException("Video não encontrado!"));
+		var video = videoRepository.findById(id).orElseThrow(() -> new RuntimeException("Video não encontrado!"));
 
 		return ResponseEntity.ok(new VideoRecord(video));
 	}
 
 	@PostMapping
-	public ResponseEntity<VideoRecord> insert(@RequestBody VideoRecord record, UriComponentsBuilder uriBuilder) {
-		var video = repository.save(new Video(record));
+	@Transactional
+	public ResponseEntity<VideoRecord> insert(@RequestBody @Valid VideoRecord record, UriComponentsBuilder uriBuilder) {
+		var categoria = categoriaRepository.findById(record.categoriaId());
+		var video = new Video(record);
 
+		if (categoria.isPresent()) {
+			video.setCategoria(categoria.get());
+		}
+
+		videoRepository.save(video);
 		var uri = uriBuilder.path("/videos/{id}").buildAndExpand(video.getId()).toUri();
 
 		return ResponseEntity.created(uri).body(new VideoRecord(video));
@@ -45,23 +58,22 @@ public class VideoController {
 
 	@PutMapping
 	@Transactional
-	public ResponseEntity<VideoRecord> update(@RequestBody VideoUpdateRecord record) {
-		var exists = repository.existsById(record.id());
+	public ResponseEntity<VideoRecord> update(@RequestBody @Valid VideoUpdateRecord record) {
+		var exists = videoRepository.existsById(record.id());
 
 		if(!exists) {
-			throw new RuntimeException("VIdeo não encontrado!");
+			throw new RuntimeException("Vídeo não encontrado!");
 		}
-		var video = repository.getReferenceById(record.id());
-		video.update(record);
-
+		var video = videoRepository.getReferenceById(record.id());
+		video = service.update(record);
 		return ResponseEntity.ok(new VideoRecord(video));
 	}
 
 	@DeleteMapping(path = "/{id}")
 	public ResponseEntity<Void> delete(@PathVariable Integer id) {
-		var video = repository.findById(id).orElseThrow(() -> new RuntimeException("Video não encontrado!"));
+		var video = videoRepository.findById(id).orElseThrow(() -> new RuntimeException("Video não encontrado!"));
 
-		repository.delete(video);
+		videoRepository.delete(video);
 		return ResponseEntity.noContent().build();
 	}
 }

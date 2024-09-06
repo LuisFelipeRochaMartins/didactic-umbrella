@@ -1,5 +1,6 @@
 package com.github.luisfeliperochamartins.aluraflix.domain.videos;
 
+import com.github.luisfeliperochamartins.aluraflix.domain.categorias.Categoria;
 import jakarta.persistence.*;
 
 @Entity
@@ -12,6 +13,10 @@ public class Video {
 	private String titulo;
 	private String descricao;
 	private String url;
+
+	@ManyToOne
+	@JoinColumn(name = "categoria_id", nullable = false)
+	private Categoria categoria;
 
 	public Video() {}
 
@@ -60,18 +65,12 @@ public class Video {
 		this.url = url;
 	}
 
-	public void update(VideoUpdateRecord record) {
-		if (record.titulo() != null) {
-			this.titulo = record.titulo();
-		}
+	public Categoria getCategoria() {
+		return categoria;
+	}
 
-		if (record.descricao() != null) {
-			this.descricao = record.descricao();
-		}
-
-		if (record.url() != null) {
-			this.url = record.url();
-		}
+	public void setCategoria(Categoria categoria) {
+		this.categoria = categoria;
 	}
 
 	@Override
@@ -81,6 +80,7 @@ public class Video {
 		sb.append(", titulo = ").append(titulo);
 		sb.append(", descricao = ").append(descricao);
 		sb.append(", url = ").append(url);
+		sb.append(", categoria = ").append(categoria);
 		return sb.toString();
 	}
 }
